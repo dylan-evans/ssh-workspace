@@ -1,0 +1,133 @@
+
+import { Http2Stream } from 'http2';
+
+type HttpHeaders = any;
+type Options = any;
+type Handler = (stream: Http2Stream, headers: HttpHeaders, options?: Options) => void;
+type RoutePath = string | RegExp;
+type RouteMap = Record<RouteType, StreamHandler>;
+type HttpMethod = "GET" | "PUT" | "POST" | "PATCH" | "HEAD" | "DELETE" | "OPTIONS" | "TRACE" | "CONNECT";
+
+interface StreamHandler {
+  path: RoutePath,
+  handler: Handler,
+  options: Options,
+}
+
+interface StreamRouter {
+  call(stream: Http2Stream, headers: HttpHeaders);
+  extend(path: string, subRouter: StreamRouter);
+  selectRoute(method: string, path: string);
+  addRoute(method: string, path: string, handler: Handler, options?: Options);
+  get(method: string, path: string, handler: Handler, options?: Options);
+  put(method: string, path: string, handler: Handler, options?: Options);
+  post(method: string, path: string, handler: Handler, options?: Options);
+  patch(method: string, path: string, handler: Handler, options?: Options);
+  head(method: string, path: string, handler: Handler, options?: Options);
+  delete(method: string, path: string, handler: Handler, options?: Options);
+  options(method: string, path: string, handler: Handler, options?: Options);
+  trace(method: string, path: string, handler: Handler, options?: Options);
+  connect(method: string, path: string, handler: Handler, options?: Options);
+}
+
+
+function createStreamRouter(): StreamRouter {
+  const routes = makeRoutes();
+  const subRouters = new Map();
+
+  function call(stream, headers) {
+    const {":method": method, ":path": path} = headers;
+    let [handler, options] = [null, {}];
+    console.log("router call");
+
+    try {
+      [handler, options] = selectRoute(method, path);
+    } catch(err) {
+      handler = errorResponse(404, "File not found")
+    }
+
+    try {
+      handler(stream, headers, options);
+    } catch(err) {
+      errorResponse()(stream, headers);
+    }
+  }
+
+  function selectRoute(method, path) {
+    for (const route of routes.get(method)) {
+      if (route.path instanceof RegExp) {
+        const execResult = route.path.exec(path);
+        if (execResult) {
+          const optionsCopy = Object.assign({execResult}, options);
+          return [route.handler, optionsCopy];
+        }
+      } else if (path === route.path) {
+        return [route.handler, route.options];
+      }
+
+    } 
+
+    const nextHandler = selectSubRoute(method, path);
+
+    if (!nextHandler) {
+      return [(stream, headers) => {
+        stream.respond({":status": 404, "content-type": "text/plain"});
+        stream.end("File not found!");
+      }, {}];
+    }
+    
+    return nextHandler;
+  }
+
+  function selectSubRoute(method, path) {
+    for (const [subPath, subRouter] of subRouters) {
+      if (path.startsWith(subPath)) {
+        return subRouter.selectRoute(method, path.slice(subPath.length))
+      }
+    }
+
+    return null;
+  }
+
+  function extend(path, subRouter) {
+    subRouters.set(path, subRouter);
+  }
+
+  function addRoute(method, path, handler, options = {}) {
+    routes.get(method).push({path, handler, options});
+  }
+
+
+  return {
+    call,
+    extend,
+    addRoute,
+    selectRoute,
+    get: (path, handler, options) => addRoute("GET", path, handler, options),
+    put: (p, h, o) => addRoute("PUT", p, h, o),
+    post: (p, h, o) => addRoute("POST", p, h, o),
+    patch: (p, h, o) => addRoute("PATCH", p, h, o),
+    head: (p, h, o) => addRoute("HEAD", p, h, o),
+    delete: (p, h, o) => addRoute("DELETE", p, h, o),
+    options: (p, h, o) => addRoute("OPTIONS", p, h, o),
+    trace: (p, h, o) => addRoute("TRACE", p, h, o),
+    connect: (p, h, o) => addRoute("CONNECT", p, h, o),
+  };
+}
+
+
+function makeRoutes() {
+  return new Map(http_methods.map((method) => [method, []]));
+}
+
+function errorResponse(status, message) {
+  return (stream, headers) => {
+    stream.respond({
+      ":status": status || 500,
+      "content-type": "text/plain"
+    });
+    stream.end(message || "Error");
+  };
+}
+
+module.exports = {createStreamRouter};
