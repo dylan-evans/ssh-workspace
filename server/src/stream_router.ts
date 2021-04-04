@@ -7,12 +7,12 @@
 import { ServerHttp2Stream } from 'http2';
 import { EventEmitter } from 'events';
 
-type HttpHeaders = any;
-type Options = any;
-type Handler = (stream: ServerHttp2Stream, headers: HttpHeaders, options?: Options) => void;
-type RoutePath = string | RegExp;
-type RouteMap = Map<HttpMethod, StreamHandler[]>;
-type ErrorHandler = (status: number, body?: string, contentType?: string) => StreamHandler;
+export type HttpHeaders = any;
+export type Options = any;
+export type Handler = (stream: ServerHttp2Stream, headers: HttpHeaders, options?: Options) => void;
+export type RoutePath = string | RegExp | null;
+export type RouteMap = Map<HttpMethod, StreamHandler[]>;
+export type ErrorHandler = (status: number, body?: string, contentType?: string) => StreamHandler;
 
 export enum HttpMethod {
   GET = "GET",
@@ -147,7 +147,7 @@ export function createResourceRouter(errorHandler?: ErrorHandler): StreamRouter 
   const router = createStreamRouter(errorHandler);
   const resPath = RegExp("/([-a-f0-9/]+)");
 
-  router.post(path, (s, h, o) => router.emit("create", s, h, o));
+  router.post("/", (s, h, o) => router.emit("create", s, h, o));
   router.get(resPath, (s, h, o) => router.emit("read", s, h, o));
   router.put(resPath, (s, h, o) => router.emit("update", s, h, o));
   router.patch(resPath, (s, h, o) => router.emit("update", s, h, o));
