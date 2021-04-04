@@ -36,28 +36,32 @@ export interface StreamHandler {
   options: Options,
 }
 
+/**
+ * Sub set of the StreamRouter interface used for custom routers.
+ */
+export interface StaticStreamRouter {
+  /**
+   * Search for a handler.
+   */
+  selectRoute(method: HttpMethod, path: RoutePath): StreamHandler;
+}
+
 /** The api for interacting with a StreamRouter. */
-export interface StreamRouter extends EventEmitter {
+export interface StreamRouter extends StaticStreamRouter, EventEmitter {
   /**
    * Call a handler based on the parameters passed from the Http2Server.
    * 
    * @param stream Stream passed from Http2Server stream event.
    * @param headers Headers from Http2Server stream event.
    */
-  call(stream: ServerHttp2Stream, headers: HttpHeaders);
-
+   call(stream: ServerHttp2Stream, headers: HttpHeaders);
   /**
    * Add a sub-router to a given path. 
    *
    * @param path The url prefix to the sub-router.
    * @param subRouter The implementation to route to.
    */
-  extend(path: string, subRouter: StreamRouter);
-
-  /**
-   * Search for a handler.
-   */
-  selectRoute(method: HttpMethod, path: RoutePath): StreamHandler;
+  extend(path: string, subRouter: StaticStreamRouter);
   addRoute(method: HttpMethod, path: RoutePath, handler: Handler, options?: Options);
   get(path: RoutePath, handler: Handler, options?: Options);
   put(path: RoutePath, handler: Handler, options?: Options);
@@ -74,7 +78,7 @@ export interface StreamRouter extends EventEmitter {
 export function createStreamRouter(errorHandler = defaultErrorHandler): StreamRouter {
   const routes = makeRoutes();
   // Note that the path to a sub router is string only.
-  const subRouters: Map<string, StreamRouter> = new Map();
+  const subRouters: Map<string, StaticStreamRouter> = new Map();
 
   function call(stream, headers) {
     const {":method": method, ":path": path} = headers;
@@ -110,7 +114,7 @@ export function createStreamRouter(errorHandler = defaultErrorHandler): StreamRo
     return errorHandler(404, "Not Found");
   }
 
-  function extend(path: string, subRouter: StreamRouter) {
+  function extend(path: string, subRouter: StaticStreamRouter) {
     subRouters.set(path, subRouter);
   }
 
