@@ -50,13 +50,13 @@ export interface StaticStreamRouter {
 export interface StreamRouter extends StaticStreamRouter, EventEmitter {
   /**
    * Call a handler based on the parameters passed from the Http2Server.
-   * 
+   *
    * @param stream Stream passed from Http2Server stream event.
    * @param headers Headers from Http2Server stream event.
    */
    call(stream: ServerHttp2Stream, headers: HttpHeaders);
   /**
-   * Add a sub-router to a given path. 
+   * Add a sub-router to a given path.
    *
    * @param path The url prefix to the sub-router.
    * @param subRouter The implementation to route to.
@@ -74,6 +74,9 @@ export interface StreamRouter extends StaticStreamRouter, EventEmitter {
   connect(path: RoutePath, handler: Handler, options?: Options);
 }
 
+export interface ResourceRouter extends StreamRouter {
+
+}
 
 export function createStreamRouter(errorHandler = defaultErrorHandler): StreamRouter {
   const routes = makeRoutes();
@@ -110,7 +113,7 @@ export function createStreamRouter(errorHandler = defaultErrorHandler): StreamRo
       } else if (path === route.path) {
         return route;
       }
-    } 
+    }
     return errorHandler(404, "Not Found");
   }
 

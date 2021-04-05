@@ -17,6 +17,8 @@ const fileServer = createFileServer("../client/build");
 
 router.extend("/static", fileServer);
 router.get("/index.html", fileServer.serve("/index.html"));
+const fileServer2 = createFileServer("../client/build/static");
+router.extend("/static", fileServer2);
 console.log(`Listending on port ${port}`);
 
 
